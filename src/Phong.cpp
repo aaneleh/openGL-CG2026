@@ -20,13 +20,13 @@ int setupShader();
 int setupGeometry();
 int loadSimpleOBJ(string filePATH, int &nVertices, string &textureFile);
 void loadSimpleMTL(string filePATH, string &textureImage);
-GLuint loadTexture(string filePath, int &width, int &height);
+GLuint loadTexture(string filePath);
 void setupLight(string filePATH, GLuint shaderID);
 
 const GLuint WIDTH = 1000, HEIGHT = 1000;
 
 string OBJECT_FILE = "Suzanne.obj";
-string ASSETS_DIRECTORY = "../assets/Modelos3d/";
+string ASSETS_DIRECTORY = "../assets/";
 
 float SPEED = 0.1; //o mover e escala vai aumentar nesse valor
 int selectedObject = 0;
@@ -53,9 +53,9 @@ void render(glm::mat4 model, GLint modelLoc, Mesh object);
 const GLchar *vertexShaderSource = R"(
 #version 400
 layout (location = 0) in vec3 position;
-layout (location = 1) in vec3 color;
-layout (location = 2) in vec3 normal;
-layout (location = 3) in vec2 texc;
+layout (location = 1) in vec3 normal;
+layout (location = 2) in vec2 texc;
+layout (location = 3) in vec3 color;
 
 uniform mat4 projection;
 uniform mat4 model;
@@ -142,12 +142,12 @@ int main(){
 
     glUseProgram(shaderID);
 
+	glActiveTexture(GL_TEXTURE0);
+
 	glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
 	setupLight(ASSETS_DIRECTORY+objects[0].materialFile, shaderID); //Seta os coeficientes KA, KS, etc pegando do arquivo .mtl
 	glUniform3f(glGetUniformLocation(shaderID, "lightPos"), lightPos.x,lightPos.y,lightPos.z);
 	glUniform3f(glGetUniformLocation(shaderID, "camPos"), camPos.x,camPos.y,camPos.z);
-
-	glActiveTexture(GL_TEXTURE0);
 
 	glm::mat4 projection = glm::ortho(-1.0, 1.0, -1.0, 1.0, -3.0, 3.0);
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, value_ptr(projection));
@@ -158,8 +158,8 @@ int main(){
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glEnable(GL_DEPTH_TEST);
-	glEnable(GL_BLEND); //Habilita a transparência -- canal alpha
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Seta função de transparência
+	//glEnable(GL_BLEND); //Habilita a transparência -- canal alpha
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Seta função de transparência
 
 	while (!glfwWindowShouldClose(window)){
 		glfwPollEvents();
@@ -172,6 +172,7 @@ int main(){
         }
 
 		glfwSwapBuffers(window);
+
 	}
     for(int i = 0; i < objects.size(); i ++){
         glDeleteVertexArrays(1, &objects[i].VAO);
@@ -361,11 +362,11 @@ int loadSimpleOBJ(string filePATH, int &nVertices, string &textureFile) {
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
     
-    glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
+    glEnableVertexAttribArray(0);
 
-    glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+    glEnableVertexAttribArray(1);
 
 	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
@@ -373,7 +374,7 @@ int loadSimpleOBJ(string filePATH, int &nVertices, string &textureFile) {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-	nVertices = vBuffer.size() / 8;  // x, y, z, s, t, normais (x, y, z),
+	nVertices = vBuffer.size() / 8;
 
     return VAO;
 }
@@ -436,22 +437,19 @@ void setupLight(string filePATH, GLuint shaderID) {
     arqEntrada.close();
 }
 
-GLuint loadTexture(string filePath, int &width, int &height) {
-	GLuint texID; // id da textura a ser carregada
+GLuint loadTexture(string filePath) {
+	GLuint texID;
 
-	// Gera o identificador da textura na memória
 	glGenTextures(1, &texID);
 	glBindTexture(GL_TEXTURE_2D, texID);
 
-	// Ajuste dos parâmetros de wrapping e filtering
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	// Carregamento da imagem usando a função stbi_load da biblioteca stb_image
-	int nrChannels;
+	int width, height, nrChannels;
 
 	unsigned char *data = stbi_load(filePath.c_str(), &width, &height, &nrChannels, 0);
 
@@ -472,8 +470,6 @@ GLuint loadTexture(string filePath, int &width, int &height) {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	
-	std::cout << "Sucesso carregando " << filePath << std::endl;
-
 	return texID;
 }
 
@@ -485,7 +481,7 @@ Mesh createMesh(string objPath, glm::vec3 position, float scale) {
 	mesh.rotate = glm::vec3(0.0,0.0,0.0);
 	mesh.scale = glm::vec3(scale,scale,scale);
 	loadSimpleMTL(ASSETS_DIRECTORY+mesh.materialFile,mesh.textureFile);
-	mesh.textureID = loadTexture(ASSETS_DIRECTORY+mesh.textureFile, mesh.textureWidth, mesh.textureHeight);
+	mesh.textureID = loadTexture(ASSETS_DIRECTORY+mesh.textureFile);
     return mesh;
 }
 
@@ -499,12 +495,11 @@ void render(glm::mat4 model, GLint modelLoc, Mesh object){
 	model = glm::rotate(model, object.rotate.y, glm::vec3(0.0,1.0,0.0));
 	model = glm::rotate(model, object.rotate.z, glm::vec3(0.0,0.0,1.0));
 
-	glActiveTexture(GL_TEXTURE0);
-
 	glBindVertexArray(object.VAO);
-	glBindTexture(GL_TEXTURE_2D, object.textureID); //conectando com o buffer de textura que será usado no draw
+
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+	
+	glBindTexture(GL_TEXTURE_2D, object.textureID); //conectando com o buffer de textura que será usado no draw
 
     glDrawArrays(GL_TRIANGLES, 0, object.nVertices);
-	glActiveTexture(GL_TEXTURE0);
 }
