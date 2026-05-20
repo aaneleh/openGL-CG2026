@@ -60,7 +60,7 @@ layout (location = 3) in vec2 texc;
 uniform mat4 projection;
 uniform mat4 model;
 
-out vec2 texCoord;
+out vec2 texCoords;
 out vec3 vNormal;
 out vec4 fragPos; 
 out vec4 vColor;
@@ -68,7 +68,7 @@ void main()
 {
    	gl_Position = projection * model * vec4(position.x, position.y, position.z, 1.0);
 	fragPos = model * vec4(position.x, position.y, position.z, 1.0);
-	texCoord = texc;
+	texCoords = texc;
 	vNormal = normal;
 	vColor = vec4(color,1.0);
 })";
@@ -76,7 +76,7 @@ void main()
 // Código fonte do Fragment Shader (em GLSL): ainda hardcoded
 const GLchar *fragmentShaderSource = R"(
 #version 400
-in vec2 texCoord;
+in vec2 texCoords;
 uniform sampler2D texBuff;
 uniform vec3 lightPos;
 uniform vec3 camPos;
@@ -92,8 +92,8 @@ void main()
 {
 
 	vec3 lightColor = vec3(1.0,1.0,1.0);
-	//vec4 objectColor = texture(texBuff,texCoord);
-	vec4 objectColor = vColor;
+	vec4 objectColor = texture(texBuff,texCoords);
+	//vec4 objectColor = vColor;
 
 	//Coeficiente de luz ambiente
 	vec3 ambient = ka * lightColor;
@@ -137,7 +137,7 @@ int main(){
     objects.push_back(createMesh(ASSETS_DIRECTORY+OBJECT_FILE, glm::vec3(-0.5,0.0,0.0), 0.2));
 
 	float ka = 0.1, kd =0.5, ks = 0.5, q = 10.0;
-	glm::vec3 lightPos = glm::vec3(0.0, 3.0, 0.0);
+	glm::vec3 lightPos = glm::vec3(0.0, 0.0, 0.0);
 	glm::vec3 camPos = glm::vec3(0.0,0.0,-3.0);
 
     glUseProgram(shaderID);
@@ -149,17 +149,17 @@ int main(){
 
 	glActiveTexture(GL_TEXTURE0);
 
-	// Matriz de projeção paralela ortográfica
-	// mat4 projection = ortho(-10.0, 10.0, -10.0, 10.0, -1.0, 1.0);
 	glm::mat4 projection = glm::ortho(-1.0, 1.0, -1.0, 1.0, -3.0, 3.0);
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, value_ptr(projection));
 
-	glm::mat4 model = glm::mat4(1); //matriz identidade;
+	glm::mat4 model = glm::mat4(1);
 	GLint modelLoc = glGetUniformLocation(shaderID, "model");
 	model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND); //Habilita a transparência -- canal alpha
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Seta função de transparência
 
 	while (!glfwWindowShouldClose(window)){
 		glfwPollEvents();
@@ -201,13 +201,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     if(selectedObject > -1){
         //ROTAÇÃO
         if (key == GLFW_KEY_X){
-            objects[selectedObject].rotate.x = action != GLFW_RELEASE;
+            objects[selectedObject].rotate.x += action != GLFW_RELEASE ? SPEED : 0;
         } else if (key == GLFW_KEY_Y){
-            objects[selectedObject].rotate.y = action != GLFW_RELEASE;
+            objects[selectedObject].rotate.y += action != GLFW_RELEASE ? SPEED : 0;
         } else if (key == GLFW_KEY_Z) {
-            objects[selectedObject].rotate.z = action != GLFW_RELEASE;
+            objects[selectedObject].rotate.z += action != GLFW_RELEASE ? SPEED : 0;
         } 
-
 
         //Controle de mover (transladar) WASD e IJ
         else if (key == GLFW_KEY_W){
@@ -362,13 +361,13 @@ int loadSimpleOBJ(string filePATH, int &nVertices, string &textureFile) {
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
     
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
 
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 
-	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(5 * sizeof(GLfloat)));
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
     glEnableVertexAttribArray(2);
     
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -402,7 +401,7 @@ void loadSimpleMTL(string filePATH, string &textureImage) {
 
 void setupLight(string filePATH, GLuint shaderID) {
 
-	float ns, ka, ks, ke, ni, d, kd, q;
+	float ka, ks, ke, kd;
 
     std::ifstream arqEntrada(filePATH.c_str());
 
@@ -414,11 +413,11 @@ void setupLight(string filePATH, GLuint shaderID) {
         std::string word;
         ssline >> word;
 
-        if (word == "Ns") {
-            ssline >> ns;
-
-        } else if (word == "Ka") {
+        if (word == "Ka") {
             ssline >> ka;
+
+		} else if (word == "Kd") {
+            ssline >> kd;
 
 		} else if (word == "Ks") {
             ssline >> ks;
@@ -426,19 +425,13 @@ void setupLight(string filePATH, GLuint shaderID) {
 		} else if (word == "Ke") {
             ssline >> ke;
 
-		} else if (word == "Ni") {
-            ssline >> ni;
-
-		} else if (word == "d") {
-            ssline >> d;
-
 		} 
 	}
 
-	glUniform1f(glGetUniformLocation(shaderID, "ka"), ka); //Ka = Coeficiente Parcela Ambiente
-	glUniform1f(glGetUniformLocation(shaderID, "kd"), ke); //Kd = Não tem no SUZANNE.MTL
-	glUniform1f(glGetUniformLocation(shaderID, "ks"), ks); //Ks = Coeficiente Parcela Especular
-	glUniform1f(glGetUniformLocation(shaderID, "q"), d); //q = Não tem no SUZANNE.MTL
+	glUniform1f(glGetUniformLocation(shaderID, "ka"), ka); //Coeficiente de reflexão ambiente (ka)
+	glUniform1f(glGetUniformLocation(shaderID, "kd"), kd); //Coeficiente de reflexão difusa (não tem kd, tentar buscar no .mtl, como não vai ter vai botar 0.0)
+	glUniform1f(glGetUniformLocation(shaderID, "ks"), ks); //Coeficiente de reflexão especular (ks)
+	glUniform1f(glGetUniformLocation(shaderID, "q"), ke); //Expoente de reflexão especular (ke)
 
     arqEntrada.close();
 }
@@ -448,14 +441,14 @@ GLuint loadTexture(string filePath, int &width, int &height) {
 
 	// Gera o identificador da textura na memória
 	glGenTextures(1, &texID);
-	glBindTexture(GL_TEXTURE_2D, texID);
+	glBindTexture(GL_TEXTURE_3D, texID);
 
 	// Ajuste dos parâmetros de wrapping e filtering
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
 	// Carregamento da imagem usando a função stbi_load da biblioteca stb_image
 	int nrChannels;
@@ -464,12 +457,12 @@ GLuint loadTexture(string filePath, int &width, int &height) {
 
 	if (data) {
 		if (nrChannels == 3) { // jpg, bmp
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+			glTexImage2D(GL_TEXTURE_3D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 		
 		} else { // assume que é 4 canais png
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+			glTexImage2D(GL_TEXTURE_3D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
 		}
-		glGenerateMipmap(GL_TEXTURE_2D);
+		glGenerateMipmap(GL_TEXTURE_3D);
 	}
 	else {
 		std::cout << "Failed to load texture " << filePath << std::endl;
@@ -477,7 +470,11 @@ GLuint loadTexture(string filePath, int &width, int &height) {
 
 	stbi_image_free(data);
 
-	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindTexture(GL_TEXTURE_3D, 0);
+	
+	std::cout << "Sucesso carregando " << filePath << std::endl;
+
+
 
 	return texID;
 }
@@ -495,17 +492,21 @@ Mesh createMesh(string objPath, glm::vec3 position, float scale) {
 }
 
 void render(glm::mat4 model, GLint modelLoc, Mesh object){
-    float angle = (GLfloat)glfwGetTime();
 
     model = glm::mat4(1); 
     model = glm::translate(model, glm::vec3(object.position.x, object.position.y, object.position.z));
     model = glm::scale(model, glm::vec3(object.scale.x, object.scale.y, object.scale.z));
 
-    if(object.rotate.x != 0.0 || object.rotate.y != 0.0 || object.rotate.z != 0.0) 
-        model = glm::rotate(model, angle, object.rotate);
+	model = glm::rotate(model, object.rotate.x, glm::vec3(1.0,0.0,0.0));
+	model = glm::rotate(model, object.rotate.y, glm::vec3(0.0,1.0,0.0));
+	model = glm::rotate(model, object.rotate.z, glm::vec3(0.0,0.0,1.0));
+
+	glActiveTexture(GL_TEXTURE0);
 
 	glBindVertexArray(object.VAO);
-	glBindTexture(GL_TEXTURE_2D, object.textureID); //conectando com o buffer de textura que será usado no draw
+	glBindTexture(GL_TEXTURE_3D, object.textureID); //conectando com o buffer de textura que será usado no draw
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+
     glDrawArrays(GL_TRIANGLES, 0, object.nVertices);
+	glActiveTexture(GL_TEXTURE0);
 }

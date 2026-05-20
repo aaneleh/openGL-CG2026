@@ -2,7 +2,7 @@
 
 ## Tarefa 1  `Hello3D.cpp`
 
-![Tarefa 1](Hello3D.png)
+![Tarefa 1 - Hello3D.cpp](Hello3D.png)
 
 
 ## Tarefa 2  `Cube.cpp`  
@@ -14,7 +14,7 @@
 - Adicionado controle de escala: Q diminui a escala e E aumenta
 - Adicionado outro cubo na cena: criado um Struct Cube, cada cubo tem sua instância com VAO, posição e escala inicial
 
-![Tarefa 2](Cube.png)
+![Tarefa 2 - Cube.cpp](Cube.png)
 
 
 ## Vivencial 1 `MeshTransform.cpp`
@@ -27,7 +27,7 @@
     - Transladar (T) nos eixos x, y e z: Move ao clicar em WASD e TG
     - Aplicar escala (S): uniforme usando Q e E e por eixo usando UI, JK e NM para os eixos x, y e z, respectivamente
 
-![Tarefa 3](MeshTransform.png)
+![Vivencial 1 - MeshTransform.cpp](MeshTransform.png)
 
 
 ## Tarefa 3  `Mesh.cpp` 
@@ -37,7 +37,7 @@
 - Renderizado objeto carregado
 - Lido nome do arquivo de textura do material (.mtl) do objeto
 
-![Tarefa 3](Mesh.png)
+![Tarefa 3 - Mesh.cpp](Mesh.png)
 
 
 ## Tarefa 4  `Phong.cpp` 
@@ -45,4 +45,4 @@
 - Carregado as informações dos vetores normais dos vértices no arquivo .OBJ (vn). 
 - Recuperar os coeficientes de iluminação ambiente, difusa e especular do arquivo de materiais (.mtl), que serão enviados pela aplicação para o fragment shader, onde calcularemos sua contribuição para a cor do pixel.
 
-![Tarefa 3](Phong.png)
+![Tarefa 4 - Phong.cpp](Phong.png)
