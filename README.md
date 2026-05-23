@@ -28,8 +28,8 @@
     - Aplicar escala (S): uniforme usando Q e E e por eixo usando UI, JK e NM para os eixos x, y e z, respectivamente
 
 ![Vivencial 1 - MeshTransform.cpp](MeshTransform.png)
-
-
+  
+  
 ## Tarefa 3  `Mesh.cpp` 
 
 - Carregado arquivo .obj pelo loadSimpleOBJ
@@ -38,11 +38,19 @@
 - Lido nome do arquivo de textura do material (.mtl) do objeto
 
 ![Tarefa 3 - Mesh.cpp](Mesh.png)
-
-
+  
+  
 ## Tarefa 4  `Phong.cpp` 
 
 - Carregado as informações dos vetores normais dos vértices no arquivo .OBJ (vn). 
 - Recuperar os coeficientes de iluminação ambiente, difusa e especular do arquivo de materiais (.mtl), que serão enviados pela aplicação para o fragment shader, onde calcularemos sua contribuição para a cor do pixel.
 
 ![Tarefa 4 - Phong.cpp](Phong.png)
+  
+  
+## Vivencial 2 `Lighting.cpp`
+
+- 🟨 Posicionar 3 luzes na cena, de acordo com a técnica de iluminação de 3 pontos de forma automática, a partir da posição e escala do objeto principal da cena.
+    - key light: É a fonte de luz mais intensa, que ilumina o objeto principal e define o tom geral da cena.
+    - fill light: Suaviza as sombras criadas pela luz principal, equilibrando a iluminação e evitando que a imagem fique muito contrastada.
+    - back light: Ilumina o fundo do objeto, criando profundidade e separando-o do fundo.
