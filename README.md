@@ -54,3 +54,5 @@
     - key light: É a fonte de luz mais intensa, que ilumina o objeto principal e define o tom geral da cena.
     - fill light: Suaviza as sombras criadas pela luz principal, equilibrando a iluminação e evitando que a imagem fique muito contrastada.
     - back light: Ilumina o fundo do objeto, criando profundidade e separando-o do fundo.
+- 🟨 "Implementar um fator de atenuação na parcela de reflexão difusa"
+- 🟨 Permitir, através de teclas, desabilitar e habilitar cada uma das 3 fontes de luz. 
