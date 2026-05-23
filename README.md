@@ -50,6 +50,8 @@
   
 ## Vivencial 2 `Lighting.cpp`
 
+- Alterado sistema de transformações: ao clicar em XYZ é selecionado o eixo, então R rotaciona e QE alteram a escala; 0 remove a seleção
+- Criado Struct para controlar as luzes
 - 🟨 Posicionar 3 luzes na cena, de acordo com a técnica de iluminação de 3 pontos de forma automática, a partir da posição e escala do objeto principal da cena.
     - key light: É a fonte de luz mais intensa, que ilumina o objeto principal e define o tom geral da cena.
     - fill light: Suaviza as sombras criadas pela luz principal, equilibrando a iluminação e evitando que a imagem fique muito contrastada.
