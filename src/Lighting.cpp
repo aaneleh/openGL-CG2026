@@ -48,12 +48,13 @@ struct Mesh {
 };
 
 struct Light {
+	glm::vec3 currentColor;
 	glm::vec3 color;
 	glm::vec3 pos;
-	bool status;
 };
 
 Mesh createMesh(string objPath, glm::vec3 position, float scale);
+Light createLight(glm::vec3 position, glm::vec3 color);
 vector<Mesh> objects;
 vector<Light> lights;
 void render(glm::mat4 model, GLint modelLoc, Mesh object);
@@ -64,65 +65,85 @@ const GLchar *vertexShaderSource = R"(
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec2 texc;
-layout (location = 3) in vec3 color;
 
-uniform mat4 projection;
 uniform mat4 model;
+uniform mat4 projection;
 
 out vec2 texCoords;
 out vec3 vNormal;
 out vec4 fragPos; 
-out vec4 vColor;
 void main()
 {
    	gl_Position = projection * model * vec4(position.x, position.y, position.z, 1.0);
 	fragPos = model * vec4(position.x, position.y, position.z, 1.0);
 	texCoords = texc;
 	vNormal = normal;
-	vColor = vec4(color,1.0);
 })";
 
 // Código fonte do Fragment Shader (em GLSL): ainda hardcoded
 const GLchar *fragmentShaderSource = R"(
 #version 400
+
 in vec2 texCoords;
-uniform sampler2D texBuff;
-uniform vec3 lightColor;
-uniform vec3 lightPos;
+
 uniform vec3 camPos;
+
+uniform vec3 keyLight_pos;
+uniform vec3 keyLight_color;
+uniform vec3 fillLight_pos;
+uniform vec3 fillLight_color;
+uniform vec3 backLight_pos;
+uniform vec3 backLight_color;
+
+uniform sampler2D texBuff;
+
 uniform float ka;
 uniform float kd;
 uniform float ks;
 uniform float q;
+
 out vec4 color;
+
 in vec4 fragPos;
 in vec3 vNormal;
-in vec4 vColor;
-void main()
-{
 
-	//vec3 lightColor = vec3(1.0,1.0,1.0);
+vec3 CalcPointLight(vec3 light_pos, vec3 light_color, vec3 N, vec4 fragPos, vec3 viewDir){
+    
 	vec4 objectColor = texture(texBuff,texCoords);
-	//vec4 objectColor = vColor;
 
-	//Coeficiente de luz ambiente
-	vec3 ambient = ka * lightColor;
+    vec3 L = normalize(light_pos - vec3(fragPos));
+    vec3 diff = max(dot(N, L), 0.0)*light_pos;
 
-	//Coeficiente de reflexão difusa
-	vec3 N = normalize(vNormal);
-	vec3 L = normalize(lightPos - vec3(fragPos));
-	float diff = max(dot(N, L),0.0);
-	vec3 diffuse = kd * diff * lightColor;
+	float distance = length(L);
+	float attenuation = 1.0 / (1.0 + 0.5 * distance + 0.25 * (distance * distance));
 
-	//Coeficiente de reflexão especular
+	vec3 diffuse = kd * diff * light_color * attenuation;
+
 	vec3 R = normalize(reflect(-L,N));
 	vec3 V = normalize(camPos - vec3(fragPos));
 	float spec = max(dot(R,V),0.0);
 	spec = pow(spec,q);
-	vec3 specular = ks * spec * lightColor; 
+	vec3 specular = ks * spec * light_color; 
 
-	vec3 result = (ambient + diffuse) * vec3(objectColor) + specular;
-	color = vec4(result,1.0);
+    return (diffuse) * vec3(objectColor) + specular;
+} 
+
+void main(){
+
+	vec3 N = normalize(vNormal);
+	vec3 V = normalize(camPos - vec3(fragPos));
+
+	vec4 objectColor = texture(texBuff,texCoords);
+
+	vec3 ambient = ka * vec3(1.0, 1.0, 1.0) * vec3(objectColor);
+
+	vec3 result = CalcPointLight(keyLight_pos, keyLight_color, N, fragPos, camPos);
+	result += CalcPointLight(fillLight_color, fillLight_color, N, fragPos, camPos);
+	result += CalcPointLight(backLight_color, backLight_color, N, fragPos, camPos);
+
+	vec3 finalColor = ambient + (result * vec3(objectColor));
+
+	color = vec4(finalColor,1.0);
 
 })";
 
@@ -146,25 +167,28 @@ int main(){
     objects.push_back(createMesh(ASSETS_DIRECTORY+OBJECT_FILE, glm::vec3(0.5,0.0,0.0), 0.2));
     objects.push_back(createMesh(ASSETS_DIRECTORY+OBJECT_FILE, glm::vec3(-0.5,0.0,0.0), 0.2));
 
-	float ka = 0.1, kd =0.5, ks = 0.5, q = 10.0;
-
-	Light newLight;
-	newLight.pos = glm::vec3(0.0, 0.0, 0.0);
-	newLight.color = glm::vec3(1.0, 1.0, 1.0);
-	newLight.status = true;
-	lights.push_back(newLight);
-
-	glm::vec3 lightPos = glm::vec3(0.0, 0.0, 0.0);
-	glm::vec3 camPos = glm::vec3(0.0,0.0,-3.0);
-
     glUseProgram(shaderID);
 
 	glActiveTexture(GL_TEXTURE0);
 
-	glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
+	//LIGHTS
 	setupLight(ASSETS_DIRECTORY+objects[0].materialFile, shaderID); //Seta os coeficientes KA, KS, etc pegando do arquivo .mtl
-	glUniform3f(glGetUniformLocation(shaderID, "lightPos"), lights[0].pos[0],lights[0].pos[1],lights[0].pos[2]);
-	glUniform3f(glGetUniformLocation(shaderID, "lightColor"), lights[0].color[0],lights[0].color[1],lights[0].color[2]);
+	int l = 0;
+	lights.push_back(createLight(glm::vec3(1.0, 0.0, -2.0), glm::vec3(1.0, 1.0, 1.0)));
+	glUniform3f(glGetUniformLocation(shaderID, "keyLight_pos"), lights[l].pos[0],lights[l].pos[1],lights[l].pos[2]);
+	glUniform3f(glGetUniformLocation(shaderID, "keyLight_color"), lights[l].currentColor[0],lights[l].currentColor[1],lights[l].currentColor[2]);
+	l = 1;
+	lights.push_back(createLight(glm::vec3(-1.0, 0.0, -1.0), glm::vec3(1.0, 1.0, 1.0)));
+	glUniform3f(glGetUniformLocation(shaderID, "fillLight_pos"), lights[l].pos[0],lights[l].pos[1],lights[l].pos[2]);
+	glUniform3f(glGetUniformLocation(shaderID, "fillLight_color"), lights[l].currentColor[0],lights[l].currentColor[1],lights[l].currentColor[2]);
+	l = 2;
+	lights.push_back(createLight(glm::vec3(-1.0, 0.0, 2.0), glm::vec3(1.0, 1.0, 1.0)));
+	glUniform3f(glGetUniformLocation(shaderID, "backLight_pos"), lights[l].pos[0],lights[l].pos[1],lights[l].pos[2]);
+	glUniform3f(glGetUniformLocation(shaderID, "backLight_color"), lights[l].currentColor[0],lights[l].currentColor[1],lights[l].currentColor[2]);
+
+	glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
+
+	glm::vec3 camPos = glm::vec3(0.0,0.0,-3.0);
 	glUniform3f(glGetUniformLocation(shaderID, "camPos"), camPos.x,camPos.y,camPos.z);
 
 	glm::mat4 projection = glm::ortho(-1.0, 1.0, -1.0, 1.0, -3.0, 3.0);
@@ -176,8 +200,8 @@ int main(){
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glEnable(GL_DEPTH_TEST);
-	//glEnable(GL_BLEND); //Habilita a transparência -- canal alpha
-	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Seta função de transparência
+	glEnable(GL_BLEND); //Habilita a transparência -- canal alpha
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Seta função de transparência
 
 	while (!glfwWindowShouldClose(window)){
 		glfwPollEvents();
@@ -185,11 +209,9 @@ int main(){
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f); //cor de fundo
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		if(lights[0].status){
-			glUniform3f(glGetUniformLocation(shaderID, "lightColor"), lights[0].color[0],lights[0].color[1],lights[0].color[2]);
-		} else {
-			glUniform3f(glGetUniformLocation(shaderID, "lightColor"), 0.0,0.0,0.0);
-		}
+		glUniform3f(glGetUniformLocation(shaderID, "keyLight_color"), lights[0].currentColor[0],lights[0].currentColor[1],lights[0].currentColor[2]);
+		glUniform3f(glGetUniformLocation(shaderID, "fillLight_color"), lights[1].currentColor[0],lights[1].currentColor[1],lights[1].currentColor[2]);
+		glUniform3f(glGetUniformLocation(shaderID, "backLight_color"), lights[2].currentColor[0],lights[2].currentColor[1],lights[2].currentColor[2]);
 
         for(int i = 0; i < objects.size(); i ++){
             render(model, modelLoc, objects[i]);
@@ -211,11 +233,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
-	//TESTE LUZ
-	if(key == GLFW_KEY_F && action == GLFW_PRESS){
-        lights[0].status = !lights[0].status;
-        std::cout << "Luz apagada" << std::endl;
-    }
+	//KEY LIGHT
+	if(key == GLFW_KEY_7 && action == GLFW_PRESS){
+		lights[0].currentColor = (lights[0].color != lights[0].currentColor) ? lights[0].color : glm::vec3(0.0,0.0,0.0);
+		std::cout << "Toggle Key Light" << std::endl;
+	//FILL LIGHT
+    } else if(key == GLFW_KEY_8 && action == GLFW_PRESS){
+		lights[1].currentColor = (lights[1].color != lights[1].currentColor) ? lights[1].color : glm::vec3(0.0,0.0,0.0);
+        std::cout << "Toggle Fill Light" << std::endl;
+	//BACK LIGHT
+	} else if(key == GLFW_KEY_9 && action == GLFW_PRESS){
+		lights[2].currentColor = (lights[2].color != lights[2].currentColor) ? lights[2].color : glm::vec3(0.0,0.0,0.0);
+        std::cout << "Toggle Back Light" << std::endl;
+	}
 
 	//RESET
 	else if(key == GLFW_KEY_0 && action == GLFW_PRESS){
@@ -545,6 +575,14 @@ Mesh createMesh(string objPath, glm::vec3 position, float scale) {
 	loadSimpleMTL(ASSETS_DIRECTORY+mesh.materialFile,mesh.textureFile);
 	mesh.textureID = loadTexture(ASSETS_DIRECTORY+mesh.textureFile);
     return mesh;
+}
+
+Light createLight(glm::vec3 position, glm::vec3 color){
+	Light light;
+	light.pos = position;
+	light.color = color;
+	light.currentColor = color;
+	return light;
 }
 
 void render(glm::mat4 model, GLint modelLoc, Mesh object){
