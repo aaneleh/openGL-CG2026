@@ -56,6 +56,13 @@
     - key light: É a fonte de luz mais intensa, que ilumina o objeto principal e define o tom geral da cena.
     - fill light: Suaviza as sombras criadas pela luz principal, equilibrando a iluminação e evitando que a imagem fique muito contrastada.
     - back light: Ilumina o fundo do objeto, criando profundidade e separando-o do fundo.
-- "Implementar um fator de atenuação na parcela de reflexão difusa"
+- Implementar um fator de atenuação na parcela de reflexão difusa
 - Permitir, através de teclas, desabilitar e habilitar cada uma das 3 fontes de luz. 
+    - 7 8 e 9 para keyLight, fillLight e backLight respectivamente
 
+
+## Tarefa 5  `Camera.cpp` 
+
+- Implemente uma câmera em primeira pessoa. 
+- Implemente a câmera como um objeto de uma classe Câmera, de maneira a agrupar todos os seus atributos e encapsular as 
+- Ações de Mover e Rotacionar.
