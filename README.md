@@ -66,3 +66,6 @@
 - Implemente uma câmera em primeira pessoa. 
 - Implemente a câmera como um objeto de uma classe Câmera, de maneira a agrupar todos os seus atributos e encapsular as 
 - Ações de Mover e Rotacionar.
+  
+- Refatoração função de teclado
+- Encapsulamento em classes Camera, Mesh, Light e Material

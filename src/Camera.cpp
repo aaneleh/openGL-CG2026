@@ -23,6 +23,7 @@ float OBJECT_SPEED = 0.1; //o mover e escala vai aumentar nesse valor
 float CAMERA_SPEED = 0.1; //o mover e escala vai aumentar nesse valor
 int selectedObject = -1;
 char selectedAxis = '0';
+bool firstMouse = true;
 
 struct Mesh {
     GLuint VAO;
@@ -56,6 +57,8 @@ struct Camera {
 	glm::vec3 target;
 	glm::vec3 front;
 	glm::vec3 up;
+	float yaw;
+	float pitch;
 };
 
 //construtores e objetos
@@ -72,6 +75,8 @@ int loadSimpleOBJ(string filePATH, int &nVertices, string &textureFile);
 string getTextureImage(string filePATH);
 GLuint loadTexture(string filePath);
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void printInfo();
 
 //setups
 int setupShader();
@@ -85,6 +90,8 @@ int main(){
 	glfwMakeContextCurrent(window);
 
 	glfwSetKeyCallback(window, key_callback);
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);  
+	glfwSetCursorPosCallback(window, mouse_callback);  
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
 		std::cout << "Failed to initialize GLAD" << std::endl;
@@ -118,6 +125,8 @@ int main(){
 	cam.target = glm::vec3(0.0,0.0,0.0);
 	cam.front = glm::vec3(0.0,0.0, -1.0);
 	cam.up = glm::vec3(0.0,1.0,0.0);
+	cam.yaw = -90.0f;
+	cam.pitch = 0.0f;
 	glm::mat4 view = glm::mat4(1.0f);
 	view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
 
@@ -170,20 +179,25 @@ int main(){
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode){
 
+	if(key == GLFW_KEY_ENTER && action == GLFW_PRESS){
+		printInfo();
+	}
+
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
+		glfwSetWindowShouldClose(window, GL_TRUE);
+	}
+
 	if (key == GLFW_KEY_W){
 		cam.position += CAMERA_SPEED * cam.front;
 	}
 	if (key == GLFW_KEY_S){
 		cam.position -= CAMERA_SPEED * cam.front;
-
 	} 
 	if (key == GLFW_KEY_D){
 		cam.position -= glm::normalize(glm::cross(cam.front, cam.up)) * CAMERA_SPEED;
-
 	} 
 	if (key == GLFW_KEY_A){
 		cam.position += glm::normalize(glm::cross(cam.front, cam.up)) * CAMERA_SPEED;
-
 	} 
 
 	if (key == GLFW_KEY_I) {
@@ -270,22 +284,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     } 
 	
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-		glfwSetWindowShouldClose(window, GL_TRUE);
-	}
 
 	//KEY LIGHT
 	else if(key == GLFW_KEY_7 && action == GLFW_PRESS){
 		lights[0].currentColor = (lights[0].color != lights[0].currentColor) ? lights[0].color : glm::vec3(0.0,0.0,0.0);
-		std::cout << "Toggle Key Light" << std::endl;
 	//FILL LIGHT
     } else if(key == GLFW_KEY_8 && action == GLFW_PRESS){
 		lights[1].currentColor = (lights[1].color != lights[1].currentColor) ? lights[1].color : glm::vec3(0.0,0.0,0.0);
-        std::cout << "Toggle Fill Light" << std::endl;
 	//BACK LIGHT
 	} else if(key == GLFW_KEY_9 && action == GLFW_PRESS){
 		lights[2].currentColor = (lights[2].color != lights[2].currentColor) ? lights[2].color : glm::vec3(0.0,0.0,0.0);
-        std::cout << "Toggle Back Light" << std::endl;
 	}
 
 	//RESET
@@ -311,6 +319,46 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		selectedAxis = 'z';
 	} 
 
+}
+
+
+void mouse_callback(GLFWwindow* window, double xpos, double ypos){
+
+	const int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+	if(state == GLFW_PRESS){
+		
+		float lastX = WIDTH/2, lastY = HEIGHT/2;
+
+		if (firstMouse) // initially set to true
+		{
+			lastX = xpos;
+			lastY = ypos;
+			firstMouse = false;
+		}
+
+		float xoffset = xpos - lastX;
+		float yoffset = lastY - ypos; // reversed since y-coordinates range from bottom to top
+		lastX = xpos;
+		lastY = ypos;
+
+		const float sensitivity = 0.005f;
+		xoffset *= sensitivity;
+		yoffset *= sensitivity;
+
+		cam.yaw += xoffset;
+		cam.pitch += yoffset;
+
+		if(cam.pitch > 89.0f)
+			cam.pitch =  89.0f;
+		if(cam.pitch < -89.0f)
+		cam.pitch = -89.0f;
+
+		glm::vec3 direction;
+		direction.x = cos(glm::radians(cam.yaw)) * cos(glm::radians(cam.pitch));
+		direction.y = sin(glm::radians(cam.pitch));
+		direction.z = sin(glm::radians(cam.yaw)) * cos(glm::radians(cam.pitch));
+		cam.front = glm::normalize(direction);
+	}
 }
 
 //CRIA KEY LIGHT, FILL LIGHT E BACK LIGHT E ENVIA PARA O SHADER
@@ -663,6 +711,40 @@ Light createLight(glm::vec3 position, glm::vec3 color){
 	light.color = color;
 	light.currentColor = color;
 	return light;
+}
+
+//PRINT INFORMAÇÕES OBJETOS E LUZES
+void printInfo(){
+	std::cerr << "\n-----------------------------------------\n" << std::endl;
+
+	for(int i = 0; i < objects.size(); i++){
+		if(i == selectedObject){
+			std::cerr << "[printInfo] " << objects[i].meshFile << " " << i << " - SELECIONADO" << std::endl;
+		} else {
+			std::cerr << "[printInfo] " << objects[i].meshFile << " " << i << std::endl;
+		}
+	}
+	for(int i = 0; i < lights.size(); i++){
+		if(lights[i].color == lights[i].currentColor){
+			std::cerr << "[printInfo] Luz " << i << " - LIGADA" << std::endl;
+		} else {
+			std::cerr << "[printInfo] Luz " << i << " - DESLIGADA" << std::endl;
+		}
+	}
+	switch(selectedAxis){
+		case 'x':
+			std::cerr << "[printInfo] Eixo selecionado: X " << std::endl;
+			break;
+		case 'y':
+			std::cerr << "[printInfo] Eixo selecionado: Y " << std::endl;
+			break;
+		case 'z':
+			std::cerr << "[printInfo] Eixo selecionado: Z " << std::endl;
+			break;
+		default:
+			std::cerr << "[printInfo] Eixo selecionado: NENHUM " << std::endl;
+			break;
+	}
 }
 
 //RENDERIZA UMA MESH
