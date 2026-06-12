@@ -1,0 +1,17 @@
+# Espera os itens camera (x y z), luzes (key, fill e back)(x y z r g b), quantidade de objetos (n) e então os objetos (x y z scale meshFile)
+
+# Camera (x y z)
+CAMERA 0.0 0.0 -2.0
+
+# Key light (x y z r g b)
+KEY_LIGHT 0.0 0.0 -0.5 1.0 1.0 1.0
+
+# Fill light (x y z r g b)
+FILL_LIGHT 0.0 0.0 -1.0 0.8 0.8 0.8
+
+# Back light (x y z r g b)
+BACK_LIGHT 0.0 1.0 0.0 1.0 1.0 1.0
+
+# Objetos (x y z scale meshFile)
+OBJECT 0.5 0.0 0.0 0.2 ../assets/ae86.obj
+OBJECT -0.5 0.0 0.0 0.2 ../assets/monkey.obj

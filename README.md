@@ -61,7 +61,7 @@
     - 7 8 e 9 para keyLight, fillLight e backLight respectivamente
 
 
-## Tarefa 5  `Camera.cpp` 
+## Tarefa 5  `Classes.cpp` 
 
 - Implemente uma câmera em primeira pessoa. 
 - Implemente a câmera como um objeto de uma classe Câmera, de maneira a agrupar todos os seus atributos e encapsular as 
@@ -69,3 +69,5 @@
   
 - Refatoração função de teclado
 - Encapsulamento em classes Camera, Mesh, Light e Material
+
+> Para usar objetos do blender, tem que ser marcado para exportar UV coordenates, normals e trianguled mesh
