@@ -57,14 +57,13 @@ class Mesh {
         GLuint VAO;
         string meshFile;
         string materialFile;
-        string textureFile;
         GLuint textureID;
         glm::vec3 position;
         glm::vec3 rotate;
         glm::vec3 scale;
         int nVertices;
 		bool isSelected;
-
+		std::vector<glm::vec3> keyFrames;
     public:
         Mesh(string objPath, glm::vec3 p, float s) {
             meshFile = objPath;
@@ -73,10 +72,22 @@ class Mesh {
             rotate = glm::vec3(0.0,0.0,0.0);
             scale = glm::vec3(s,s,s);
 			isSelected = false;
-            textureFile = getTextureImage(materialFile);
+            string textureFile = getTextureImage(materialFile);
             if(textureFile != "")	textureID = loadTexture(textureFile);
+			keyFrames.push_back(p);
+			keyFrames.push_back(glm::vec3(p.x+2, p.y+2, p.z+2));
+
         }
     
+		void animate(){
+
+			if(position.x < keyFrames[1].x){
+				std::cout << "position[0]" << position[0] << "\tkeyFrames[1][0] " << keyFrames[1][0] << std::endl;
+				position.x += 0.1;
+			} 
+
+		}
+
     private:
         // CARREGA UM OBJETO OBJ E RETORNA O SEU VAO, NUMERO DE VERTICES E QUAL O NOME DO ARQUIVO DE TEXTURA
         int loadSimpleOBJ(string filePATH, int &nVertices, string &textureFile) {
@@ -267,15 +278,17 @@ vector<Mesh> objects;
 vector<Light> lights;
 Camera cam(glm::vec3(0.0,0.0,-3.0));
 
-//utils
+//UTILS
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void readConfig(string configFile);
 
-//setups
+//SETUPS
 int setupShader();
 int setupGeometry();
 void setupLights(int shaderID);
+void setupMaterial(int shaderID, Material material);
+
 void render(glm::mat4 model, GLint modelLoc, Mesh object);
 
 int main(){
@@ -288,9 +301,7 @@ int main(){
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);  
 	glfwSetCursorPosCallback(window, mouse_callback);  
 
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)){
-		std::cout << "Failed to initialize GLAD" << std::endl;
-	}
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) std::cout << "Failed to initialize GLAD" << std::endl;
 
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
@@ -298,43 +309,33 @@ int main(){
 
 	//OBJETOS E SHADER
 	readConfig("../config.txt");
+	objects[0].keyFrames.push_back(glm::vec3(objects[0].position.x+2, objects[0].position.y+2, objects[0].position.z+2));
+
 	GLuint shaderID = setupShader();
-
     glUseProgram(shaderID);
-
+	setupMaterial(shaderID, objects[0].materialFile);
+	setupLights(shaderID);
 	glActiveTexture(GL_TEXTURE0);
-
-	Material material(objects[0].materialFile);
-	glUniform1f(glGetUniformLocation(shaderID, "metallic"), material.metallic);
-	glUniform3f(glGetUniformLocation(shaderID, "color"), material.color[0], material.color[1], material.color[2]);
-	glUniform1f(glGetUniformLocation(shaderID, "specular_s"), material.specular_s);
-	glUniform1f(glGetUniformLocation(shaderID, "specular_e"), material.specular_e);
-
-	setupLights(shaderID); //enviar as 3 luzes para o shader
-
 	glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
 
 	//CAMERA
-	//cam.position = glm::vec3(0.0,0.0,-2.0);
-	cam.target = glm::vec3(0.0,0.0,0.0);
-	cam.front = glm::vec3(0.0,0.0, -1.0);
-	cam.up = glm::vec3(0.0,1.0,0.0);
-	cam.yaw = -45.0f;
-	cam.pitch = 0.0f;
+	cam.front.x = cos(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
+	cam.front.y = sin(glm::radians(cam.pitch));
+	cam.front.z = sin(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
+	cam.front = glm::normalize(cam.front);
 	glm::mat4 view = glm::mat4(1.0f);
 	view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
-
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
-
 	glUniform3f(glGetUniformLocation(shaderID, "camPos"), cam.position.x,cam.position.y,cam.position.z);
 
+
 	//MATRIZES PROJEÇÃO E MODELO
-	glm::mat4 projection = glm::ortho(-1.0, 1.0, -1.0, 1.0, -3.0, 3.0);
+	glm::mat4 projection = glm::perspective(glm::radians(40.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, value_ptr(projection));
 
 	glm::mat4 model = glm::mat4(1);
 	GLint modelLoc = glGetUniformLocation(shaderID, "model");
-	model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+	//model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glEnable(GL_DEPTH_TEST);
@@ -342,12 +343,13 @@ int main(){
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//PRINTA INSTRUÇÕES DE USO
+/* 	
 	std::cout << "CAMERA:\n\tUP: Move camera para cima\n\tDOWN: Move camera para baixo\n\tRIGHT: Move camera para a direita\n\tLEFT: Move camera para a esquerda\n\tMOUSE (PRESSIONANDO BOTAO ESQUERDO): Olha ao redor" << std::endl;
 	std::cout << "LUZES:\n\t7: Desliga/Liga key light\n\t8: Desliga/Liga fill light\n\t8: Desliga/Liga back light" << std::endl;
 	std::cout << "OBJETOS:\n\t1: Seleciona o objeto 1\n\t2: Seleciona o objeto 2\n\tx: Seleciona o eixo X\n\ty: Seleciona o eixo Y\n\tz: Seleciona o eixo Z\n\t0: Desseleciona eixo e objeto" << std::endl;
 	std::cout << "\tW: Move objeto para cima\n\tS: Move objeto para baixo\n\tD: Move objeto para a direita\n\tA: Move objeto para a esquerda\n\tT: Move objeto para frente\n\tG: Move objeto para tras" << std::endl;
 	std::cout << "\tQ: Diminui a escala no eixo selecionado (ou uniforme se nao tem eixo)\n\tE: Aumenta a escala no eixo selecionado (ou uniforme se nao tem eixo)\n\tR: Rotaciona no eixo selecionado" << std::endl;
-
+*/
 	while (!glfwWindowShouldClose(window)){
 		//CHECA INTERAÇÕES 
 		glfwPollEvents();
@@ -357,10 +359,13 @@ int main(){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//ATUALIZA LUZES E CAMERA
+		view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
+		glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
 		glUniform3f(glGetUniformLocation(shaderID, "camPos"), cam.position.x,cam.position.y,cam.position.z);
 		glUniform3f(glGetUniformLocation(shaderID, "keyLight_color"), lights[0].currentColor[0],lights[0].currentColor[1],lights[0].currentColor[2]);
 		glUniform3f(glGetUniformLocation(shaderID, "fillLight_color"), lights[1].currentColor[0],lights[1].currentColor[1],lights[1].currentColor[2]);
 		glUniform3f(glGetUniformLocation(shaderID, "backLight_color"), lights[2].currentColor[0],lights[2].currentColor[1],lights[2].currentColor[2]);
+		
 		glm::mat4 view = glm::mat4(1.0f);
 		view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
 		glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
@@ -383,8 +388,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
 
+	cam.front.x = cos(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
+	cam.front.y = sin(glm::radians(cam.pitch));
+	cam.front.z = sin(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
+	cam.front = glm::normalize(cam.front);
 	//CAMERA
 	if (key == GLFW_KEY_UP){
+		
 		cam.position += CAMERA_SPEED * cam.front;
 	}
 	else if (key == GLFW_KEY_DOWN){
@@ -398,7 +408,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	} 
 
 	//SELEÇÃO DE EIXO
-	if (key == GLFW_KEY_X && action == GLFW_PRESS){
+	else if (key == GLFW_KEY_X && action == GLFW_PRESS){
 		std::cout << "Eixo selecionado: x" << std::endl;
 		selectedAxis = 'x';
 	} else if (key == GLFW_KEY_Y && action == GLFW_PRESS){
@@ -410,7 +420,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	} 
 
 	//RESET
-	if(key == GLFW_KEY_0 && action == GLFW_PRESS){
+	else if(key == GLFW_KEY_0 && action == GLFW_PRESS){
 		std::cout << "Eixo selecionado: Nenhum" << std::endl;
 		std::cout << "Objeto selecionado: Nenhum" << std::endl;
         selectedObject = -1;
@@ -418,16 +428,20 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 	//SELEÇÃO DE OBJETO
 	else if(key == GLFW_KEY_1 && action == GLFW_PRESS){
+		for(int i = 0; i < objects.size(); i++)	objects[i].isSelected = false;
 		std::cout << "Objeto selecionado: 1" << std::endl;
 		objects[0].isSelected = true;
-		objects[1].isSelected = false;
     }  else if(key == GLFW_KEY_2 && action == GLFW_PRESS){
+		for(int i = 0; i < objects.size(); i++)	objects[i].isSelected = false;
 		std::cout << "Objeto selecionado: 2" << std::endl;
 		objects[1].isSelected = true;
-		objects[0].isSelected = false;
+    }  else if(key == GLFW_KEY_3 && action == GLFW_PRESS){
+		for(int i = 0; i < objects.size(); i++)	objects[i].isSelected = false;
+		std::cout << "Objeto selecionado: 3" << std::endl;
+		objects[2].isSelected = true;
     } 
 	//LUZES
-	if(key == GLFW_KEY_7 && action == GLFW_PRESS){
+	else if(key == GLFW_KEY_7 && action == GLFW_PRESS){
 		lights[0].currentColor = (lights[0].color != lights[0].currentColor) ? lights[0].color : glm::vec3(0.0,0.0,0.0);
 		std::cout << ( (lights[0].color != lights[0].currentColor) ? "Key light: Desligada" : "Key light: Ligada") << std::endl;
 
@@ -502,7 +516,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos){
 		}
 
 		float xoffset = xpos - lastX;
-		float yoffset = lastY - ypos; // reversed since y-coordinates range from bottom to top
+		float yoffset = lastY - ypos;
 		lastX = xpos;
 		lastY = ypos;
 
@@ -539,7 +553,11 @@ void readConfig(string configFile) {
 
 		if (word == "CAMERA") {
 			stream >> cam.position.x >> cam.position.y >> cam.position.z;
-
+			cam.target = glm::vec3(0.0,0.0,0.0);
+			cam.front = glm::vec3(0.0,0.0, -1.0);
+			cam.up = glm::vec3(0.0,1.0,0.0);
+			cam.yaw = -90.0f;
+			cam.pitch = 0.0f;
 		} else if (word == "KEY_LIGHT") {
 			glm::vec3 pos;
 			glm::vec3 color;
@@ -581,6 +599,14 @@ void setupLights(int shaderID){
 	glUniform3f(glGetUniformLocation(shaderID, "backLight_color"), lights[l].currentColor[0],lights[l].currentColor[1],lights[l].currentColor[2]);
 }
 
+//ENVIA OS ATRIBUTOS DO MATERIAL PASSADO PRO SHADER PASSADO
+void setupMaterial(int shaderID, Material material){
+	glUniform1f(glGetUniformLocation(shaderID, "metallic"), material.metallic);
+	glUniform3f(glGetUniformLocation(shaderID, "color"), material.color[0], material.color[1], material.color[2]);
+	glUniform1f(glGetUniformLocation(shaderID, "specular_s"), material.specular_s);
+	glUniform1f(glGetUniformLocation(shaderID, "specular_e"), material.specular_e);
+}
+
 //SETUP SHADER
 int setupShader(){
 	// Vertex shader
@@ -602,7 +628,7 @@ int setupShader(){
 			gl_Position = projection * worldPos * view;
 			vPosition = worldPos.xyz;
 			vTexc = texc;
-			vNormal = normal;
+			vNormal = mat3(transpose(inverse(model))) * normal;
 		})"
 	;
 
@@ -709,6 +735,8 @@ int setupShader(){
 
 //RENDERIZA UMA MESH
 void render(glm::mat4 model, GLint modelLoc, Mesh object){
+
+	//object.animate();
 
     model = glm::mat4(1); 
     model = glm::translate(model, glm::vec3(object.position.x, object.position.y, object.position.z));
