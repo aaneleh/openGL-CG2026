@@ -304,8 +304,7 @@ int main(){
 
 	//OBJETOS E SHADER
 	readConfig("../config.txt");
-	objects[0].keyFrames.push_back(glm::vec3(objects[0].position.x+0.2, objects[0].position.y+0.2, objects[0].position.z+0.0));
-
+	//objects[0].keyFrames.push_back(glm::vec3(objects[0].position.x+0.2, objects[0].position.y+0.2, objects[0].position.z+0.0));
 
 	GLuint shaderID = setupShader();
     glUseProgram(shaderID);
@@ -324,7 +323,6 @@ int main(){
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
 	glUniform3f(glGetUniformLocation(shaderID, "camPos"), cam.position.x,cam.position.y,cam.position.z);
 
-
 	//MATRIZES PROJEÇÃO E MODELO
 	glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, value_ptr(projection));
@@ -339,13 +337,11 @@ int main(){
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//PRINTA INSTRUÇÕES DE USO
-/* 	
-	std::cout << "CAMERA:\n\tUP: Move camera para cima\n\tDOWN: Move camera para baixo\n\tRIGHT: Move camera para a direita\n\tLEFT: Move camera para a esquerda\n\tMOUSE (PRESSIONANDO BOTAO ESQUERDO): Olha ao redor" << std::endl;
+	std::cout << "CAMERA:\n\tUP: Move camera para cima\n\tDOWN: Move camera para baixo\n\tRIGHT: Move camera para a direita\n\tLEFT: Move camera para a esquerda\n\tMOUSE (PRESSIONANDO BOTAO DIREITO): Olha ao redor\n\tMOUSE (CLIQUE DO BOTAO ESQUERDO): Cria novo keyframe no objeto selecionado" << std::endl;
 	std::cout << "LUZES:\n\t7: Desliga/Liga key light\n\t8: Desliga/Liga fill light\n\t8: Desliga/Liga back light" << std::endl;
 	std::cout << "OBJETOS:\n\t1: Seleciona o objeto 1\n\t2: Seleciona o objeto 2\n\tx: Seleciona o eixo X\n\ty: Seleciona o eixo Y\n\tz: Seleciona o eixo Z\n\t0: Desseleciona eixo e objeto" << std::endl;
 	std::cout << "\tW: Move objeto para cima\n\tS: Move objeto para baixo\n\tD: Move objeto para a direita\n\tA: Move objeto para a esquerda\n\tT: Move objeto para frente\n\tG: Move objeto para tras" << std::endl;
 	std::cout << "\tQ: Diminui a escala no eixo selecionado (ou uniforme se nao tem eixo)\n\tE: Aumenta a escala no eixo selecionado (ou uniforme se nao tem eixo)\n\tR: Rotaciona no eixo selecionado" << std::endl;
-*/
 	while (!glfwWindowShouldClose(window)){
 		//CHECA INTERAÇÕES 
 		glfwPollEvents();
