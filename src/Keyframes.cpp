@@ -14,13 +14,15 @@ using namespace std;
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#include <cmath>
 
 //constantes e seleção
 const GLuint WIDTH = 1000, HEIGHT = 1000;
-float OBJECT_SPEED = 0.1; //o mover e escala vai aumentar nesse valor
-float CAMERA_SPEED = 0.1; //o mover e escala vai aumentar nesse valor
+float OBJECT_SPEED = 0.01; //o mover e escala vai aumentar nesse valor
+float CAMERA_SPEED = 0.01; //o mover e escala vai aumentar nesse valor
 int selectedObject = -1;
 char selectedAxis = '0';
+bool animation = true;
 bool firstMouse = true;
 
 //construtores e objetos
@@ -64,6 +66,7 @@ class Mesh {
         int nVertices;
 		bool isSelected;
 		std::vector<glm::vec3> keyFrames;
+		int currentKeyFrame;
     public:
         Mesh(string objPath, glm::vec3 p, float s) {
             meshFile = objPath;
@@ -75,18 +78,8 @@ class Mesh {
             string textureFile = getTextureImage(materialFile);
             if(textureFile != "")	textureID = loadTexture(textureFile);
 			keyFrames.push_back(p);
-			keyFrames.push_back(glm::vec3(p.x+2, p.y+2, p.z+2));
-
+			currentKeyFrame = 0;
         }
-    
-		void animate(){
-
-			if(position.x < keyFrames[1].x){
-				std::cout << "position[0]" << position[0] << "\tkeyFrames[1][0] " << keyFrames[1][0] << std::endl;
-				position.x += 0.1;
-			} 
-
-		}
 
     private:
         // CARREGA UM OBJETO OBJ E RETORNA O SEU VAO, NUMERO DE VERTICES E QUAL O NOME DO ARQUIVO DE TEXTURA
@@ -281,6 +274,7 @@ Camera cam(glm::vec3(0.0,0.0,-3.0));
 //UTILS
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
 void readConfig(string configFile);
 
 //SETUPS
@@ -289,7 +283,7 @@ int setupGeometry();
 void setupLights(int shaderID);
 void setupMaterial(int shaderID, Material material);
 
-void render(glm::mat4 model, GLint modelLoc, Mesh object);
+void render(glm::mat4 model, GLint modelLoc, Mesh &object, bool isSelected);
 
 int main(){
 	//GLFW WINDOW
@@ -300,6 +294,7 @@ int main(){
 	glfwSetKeyCallback(window, key_callback);
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);  
 	glfwSetCursorPosCallback(window, mouse_callback);  
+	glfwSetMouseButtonCallback(window, mouse_button_callback);
 
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) std::cout << "Failed to initialize GLAD" << std::endl;
 
@@ -309,7 +304,8 @@ int main(){
 
 	//OBJETOS E SHADER
 	readConfig("../config.txt");
-	objects[0].keyFrames.push_back(glm::vec3(objects[0].position.x+2, objects[0].position.y+2, objects[0].position.z+2));
+	objects[0].keyFrames.push_back(glm::vec3(objects[0].position.x+0.2, objects[0].position.y+0.2, objects[0].position.z+0.0));
+
 
 	GLuint shaderID = setupShader();
     glUseProgram(shaderID);
@@ -330,7 +326,7 @@ int main(){
 
 
 	//MATRIZES PROJEÇÃO E MODELO
-	glm::mat4 projection = glm::perspective(glm::radians(40.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, value_ptr(projection));
 
 	glm::mat4 model = glm::mat4(1);
@@ -371,7 +367,7 @@ int main(){
 		glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
 
 		//RENDERIZA OBJETOS
-        for(int i = 0; i < objects.size(); i ++) render(model, modelLoc, objects[i]);
+        for(int i = 0; i < objects.size(); i ++) render(model, modelLoc, objects[i], i == selectedObject);
 
 		glfwSwapBuffers(window);
 	}
@@ -419,6 +415,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		selectedAxis = 'z';
 	} 
 
+	else if(key == GLFW_KEY_P && action == GLFW_PRESS){
+		animation = !animation;
+	}
+
 	//RESET
 	else if(key == GLFW_KEY_0 && action == GLFW_PRESS){
 		std::cout << "Eixo selecionado: Nenhum" << std::endl;
@@ -428,17 +428,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     }
 	//SELEÇÃO DE OBJETO
 	else if(key == GLFW_KEY_1 && action == GLFW_PRESS){
-		for(int i = 0; i < objects.size(); i++)	objects[i].isSelected = false;
 		std::cout << "Objeto selecionado: 1" << std::endl;
-		objects[0].isSelected = true;
+		selectedObject = 0;
     }  else if(key == GLFW_KEY_2 && action == GLFW_PRESS){
-		for(int i = 0; i < objects.size(); i++)	objects[i].isSelected = false;
 		std::cout << "Objeto selecionado: 2" << std::endl;
-		objects[1].isSelected = true;
+		selectedObject = 1;
     }  else if(key == GLFW_KEY_3 && action == GLFW_PRESS){
-		for(int i = 0; i < objects.size(); i++)	objects[i].isSelected = false;
 		std::cout << "Objeto selecionado: 3" << std::endl;
-		objects[2].isSelected = true;
+		selectedObject = 2;
     } 
 	//LUZES
 	else if(key == GLFW_KEY_7 && action == GLFW_PRESS){
@@ -455,58 +452,68 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	}
 
 	//TRANSFORMAÇÃO DO OBJETO SELECIONADO
-	for(int i = 0; i < objects.size(); i ++){
-		if(objects[i].isSelected){
-			//TRANSLAÇÃO
-			if (key == GLFW_KEY_W){
-				objects[i].position.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-			} else if (key == GLFW_KEY_S){
-				objects[i].position.y += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-			} else if (key == GLFW_KEY_D){
-				objects[i].position.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-			} else if (key == GLFW_KEY_A){
-				objects[i].position.x += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-			} else if (key == GLFW_KEY_T){
-				objects[i].position.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-			} else if (key == GLFW_KEY_G){
-				objects[i].position.z += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+	if(selectedObject != -1){
+		//TRANSLAÇÃO
+		if (key == GLFW_KEY_W){
+			objects[selectedObject].position.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+		} else if (key == GLFW_KEY_S){
+			objects[selectedObject].position.y += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+		} else if (key == GLFW_KEY_D){
+			objects[selectedObject].position.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+		} else if (key == GLFW_KEY_A){
+			objects[selectedObject].position.x += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+		} else if (key == GLFW_KEY_T){
+			objects[selectedObject].position.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+		} else if (key == GLFW_KEY_G){
+			objects[selectedObject].position.z += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+		}
+		//ESCALA
+		else if(key == GLFW_KEY_Q){
+			if(selectedAxis == 'x') objects[selectedObject].scale.x += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+			else if(selectedAxis == 'y') objects[selectedObject].scale.y += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+			else if(selectedAxis == 'z') objects[selectedObject].scale.z += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+			else {
+				objects[selectedObject].scale.x += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+				objects[selectedObject].scale.y += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
+				objects[selectedObject].scale.z += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
 			}
-			//ESCALA
-			else if(key == GLFW_KEY_Q){
-				if(selectedAxis == 'x') objects[i].scale.x += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-				else if(selectedAxis == 'y') objects[i].scale.y += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-				else if(selectedAxis == 'z') objects[i].scale.z += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-				else {
-					objects[i].scale.x += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-					objects[i].scale.y += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-					objects[i].scale.z += action != GLFW_RELEASE ? -OBJECT_SPEED : 0;
-				}
-			} else if(key == GLFW_KEY_E){
-				if(selectedAxis == 'x') objects[i].scale.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-				else if(selectedAxis == 'y') objects[i].scale.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-				else if(selectedAxis == 'z') objects[i].scale.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-				else {
-					objects[i].scale.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-					objects[i].scale.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-					objects[i].scale.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-				}
+		} else if(key == GLFW_KEY_E){
+			if(selectedAxis == 'x') objects[selectedObject].scale.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+			else if(selectedAxis == 'y') objects[selectedObject].scale.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+			else if(selectedAxis == 'z') objects[selectedObject].scale.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+			else {
+				objects[selectedObject].scale.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+				objects[selectedObject].scale.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+				objects[selectedObject].scale.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
 			}
-			//ROTAÇÃO
-			else if(key == GLFW_KEY_R){
-				if(selectedAxis == 'x') objects[i].rotate.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-				else if(selectedAxis == 'y') objects[i].rotate.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-				else if(selectedAxis == 'z') objects[i].rotate.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
-			}
+		}
+		//ROTAÇÃO
+		else if(key == GLFW_KEY_R){
+			if(selectedAxis == 'x') objects[selectedObject].rotate.z += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+			else if(selectedAxis == 'y') objects[selectedObject].rotate.x += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
+			else if(selectedAxis == 'z') objects[selectedObject].rotate.y += action != GLFW_RELEASE ? OBJECT_SPEED : 0;
 		}
 	}
 
 }
 
+//MOUSE BUTTON
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods){
+	const int LEFT_MOUSE = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+	double xpos, ypos;
+	glfwGetCursorPos(window, &xpos, &ypos);
+	
+	if(LEFT_MOUSE == GLFW_PRESS && selectedObject != -1) {
+		std::cout << "Keyframe novo: " << (xpos-(WIDTH/2))/WIDTH << ", " << -((ypos-(HEIGHT/2))/HEIGHT) << ", 0.0" << std::endl;
+		objects[selectedObject].keyFrames.push_back(glm::vec3( (xpos-(WIDTH/2))/WIDTH , -((ypos-(HEIGHT/2))/HEIGHT),0.0));
+	}
+}
+
 //MOUSE
 void mouse_callback(GLFWwindow* window, double xpos, double ypos){
-	const int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
-	if(state == GLFW_PRESS){
-		
+	const int RIGHT_MOUSE = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+	if(RIGHT_MOUSE == GLFW_PRESS){
+	
 		float lastX = WIDTH/2, lastY = HEIGHT/2;
 
 		if (firstMouse)	{
@@ -734,10 +741,32 @@ int setupShader(){
 }
 
 //RENDERIZA UMA MESH
-void render(glm::mat4 model, GLint modelLoc, Mesh object){
+void render(glm::mat4 model, GLint modelLoc, Mesh &object, bool isSelected){
 
-	//object.animate();
-
+	int i = object.currentKeyFrame;
+	if(object.keyFrames.size() > 1 && animation){
+		if(object.position.x > object.keyFrames[i].x){
+			object.position.x -= OBJECT_SPEED;
+		} else if(object.position.x < object.keyFrames[i].x){
+			object.position.x += OBJECT_SPEED;
+		} 
+		if(object.position.y > object.keyFrames[i].y){
+			object.position.y -= OBJECT_SPEED;
+		} else if(object.position.y < object.keyFrames[i].y){
+			object.position.y += OBJECT_SPEED;
+		} 
+		if(object.position.z > object.keyFrames[i].z){
+			object.position.z -= OBJECT_SPEED;
+		} else if(object.position.z < object.keyFrames[i].z){
+			object.position.z += OBJECT_SPEED;
+		} 
+		if(abs((object.position.x - object.keyFrames[i].x)) < 0.05
+		&& abs((object.position.y - object.keyFrames[i].y)) < 0.05
+		&& abs((object.position.z - object.keyFrames[i].z)) < 0.05) {
+			object.currentKeyFrame = (object.currentKeyFrame+1) % (object.keyFrames.size());
+		}
+	}
+		
     model = glm::mat4(1); 
     model = glm::translate(model, glm::vec3(object.position.x, object.position.y, object.position.z));
     model = glm::scale(model, glm::vec3(object.scale.x, object.scale.y, object.scale.z));
@@ -754,7 +783,7 @@ void render(glm::mat4 model, GLint modelLoc, Mesh object){
 
     glDrawArrays(GL_TRIANGLES, 0, object.nVertices);
 
-	if(object.isSelected)	{
+	if(isSelected)	{
 		glPointSize(4);
 		glDrawArrays(GL_POINTS, 0, object.nVertices);
 		glBindVertexArray(0);
