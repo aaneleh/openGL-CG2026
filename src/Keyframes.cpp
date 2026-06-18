@@ -18,12 +18,14 @@ using namespace std;
 
 //constantes e seleção
 const GLuint WIDTH = 1000, HEIGHT = 1000;
-float OBJECT_SPEED = 0.01; //o mover e escala vai aumentar nesse valor
-float CAMERA_SPEED = 0.01; //o mover e escala vai aumentar nesse valor
+float OBJECT_SPEED = 0.01;
+float CAMERA_SPEED = 0.1;
 int selectedObject = -1;
 char selectedAxis = '0';
 bool animation = true;
 bool firstMouse = true;
+float lastX =  800.0f / 2.0;
+float lastY =  600.0 / 2.0;
 
 //construtores e objetos
 class Light {
@@ -282,8 +284,8 @@ int setupShader();
 int setupGeometry();
 void setupLights(int shaderID);
 void setupMaterial(int shaderID, Material material);
-
-void render(glm::mat4 model, GLint modelLoc, Mesh &object, bool isSelected);
+void setupCamera(int shaderID);
+void render(int shaderID, Mesh &object, bool isSelected);
 
 int main(){
 	//GLFW WINDOW
@@ -304,36 +306,22 @@ int main(){
 
 	//OBJETOS E SHADER
 	readConfig("../config.txt");
-	//objects[0].keyFrames.push_back(glm::vec3(objects[0].position.x+0.2, objects[0].position.y+0.2, objects[0].position.z+0.0));
 
 	GLuint shaderID = setupShader();
     glUseProgram(shaderID);
 	setupMaterial(shaderID, objects[0].materialFile);
 	setupLights(shaderID);
+	setupCamera(shaderID);
 	glActiveTexture(GL_TEXTURE0);
 	glUniform1i(glGetUniformLocation(shaderID, "texBuff"), 0);
 
-	//CAMERA
-	cam.front.x = cos(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
-	cam.front.y = sin(glm::radians(cam.pitch));
-	cam.front.z = sin(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
-	cam.front = glm::normalize(cam.front);
-	glm::mat4 view = glm::mat4(1.0f);
-	view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
-	glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
-	glUniform3f(glGetUniformLocation(shaderID, "camPos"), cam.position.x,cam.position.y,cam.position.z);
-
 	//MATRIZES PROJEÇÃO E MODELO
-	glm::mat4 projection = glm::perspective(glm::radians(30.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
 	glUniformMatrix4fv(glGetUniformLocation(shaderID, "projection"), 1, GL_FALSE, value_ptr(projection));
-
-	glm::mat4 model = glm::mat4(1);
-	GLint modelLoc = glGetUniformLocation(shaderID, "model");
-	//model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
+	glEnable(GL_CULL_FACE);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	//PRINTA INSTRUÇÕES DE USO
@@ -351,19 +339,15 @@ int main(){
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		//ATUALIZA LUZES E CAMERA
-		view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
-		glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
-		glUniform3f(glGetUniformLocation(shaderID, "camPos"), cam.position.x,cam.position.y,cam.position.z);
-		glUniform3f(glGetUniformLocation(shaderID, "keyLight_color"), lights[0].currentColor[0],lights[0].currentColor[1],lights[0].currentColor[2]);
-		glUniform3f(glGetUniformLocation(shaderID, "fillLight_color"), lights[1].currentColor[0],lights[1].currentColor[1],lights[1].currentColor[2]);
-		glUniform3f(glGetUniformLocation(shaderID, "backLight_color"), lights[2].currentColor[0],lights[2].currentColor[1],lights[2].currentColor[2]);
-		
+		setupCamera(shaderID);
+		setupLights(shaderID);
+
 		glm::mat4 view = glm::mat4(1.0f);
 		view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
 		glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
 
 		//RENDERIZA OBJETOS
-        for(int i = 0; i < objects.size(); i ++) render(model, modelLoc, objects[i], i == selectedObject);
+        for(int i = 0; i < objects.size(); i ++) render(shaderID, objects[i], i == selectedObject);
 
 		glfwSwapBuffers(window);
 	}
@@ -386,7 +370,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	cam.front = glm::normalize(cam.front);
 	//CAMERA
 	if (key == GLFW_KEY_UP){
-		
 		cam.position += CAMERA_SPEED * cam.front;
 	}
 	else if (key == GLFW_KEY_DOWN){
@@ -506,11 +489,12 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 //MOUSE
-void mouse_callback(GLFWwindow* window, double xpos, double ypos){
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn){
 	const int RIGHT_MOUSE = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
 	if(RIGHT_MOUSE == GLFW_PRESS){
 	
-		float lastX = WIDTH/2, lastY = HEIGHT/2;
+		float xpos = static_cast<float>(xposIn);
+    	float ypos = static_cast<float>(yposIn);
 
 		if (firstMouse)	{
 			lastX = xpos;
@@ -523,7 +507,7 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos){
 		lastX = xpos;
 		lastY = ypos;
 
-		const float sensitivity = 0.005f;
+		const float sensitivity = CAMERA_SPEED;
 		xoffset *= sensitivity;
 		yoffset *= sensitivity;
 
@@ -608,6 +592,18 @@ void setupMaterial(int shaderID, Material material){
 	glUniform3f(glGetUniformLocation(shaderID, "color"), material.color[0], material.color[1], material.color[2]);
 	glUniform1f(glGetUniformLocation(shaderID, "specular_s"), material.specular_s);
 	glUniform1f(glGetUniformLocation(shaderID, "specular_e"), material.specular_e);
+}
+
+//CONFIGURA CAMERA
+void setupCamera(int shaderID){
+	cam.front.x = cos(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
+	cam.front.y = sin(glm::radians(cam.pitch));
+	cam.front.z = sin(glm::radians(cam.yaw) * cos(glm::radians(cam.pitch)));
+	cam.front = glm::normalize(cam.front);
+	glm::mat4 view = glm::mat4(1.0f);
+	view = glm::lookAt(cam.position, cam.position + cam.front, cam.up);
+	glUniformMatrix4fv(glGetUniformLocation(shaderID, "view"), 1, GL_FALSE, value_ptr(view));
+	glUniform3f(glGetUniformLocation(shaderID, "camPos"), cam.position.x,cam.position.y,cam.position.z);
 }
 
 //SETUP SHADER
@@ -737,7 +733,7 @@ int setupShader(){
 }
 
 //RENDERIZA UMA MESH
-void render(glm::mat4 model, GLint modelLoc, Mesh &object, bool isSelected){
+void render(int shaderID, Mesh &object, bool isSelected){
 
 	int i = object.currentKeyFrame;
 	if(object.keyFrames.size() > 1 && animation){
@@ -763,16 +759,16 @@ void render(glm::mat4 model, GLint modelLoc, Mesh &object, bool isSelected){
 		}
 	}
 		
-    model = glm::mat4(1); 
+    glm::mat4 model = glm::mat4(1); 
     model = glm::translate(model, glm::vec3(object.position.x, object.position.y, object.position.z));
     model = glm::scale(model, glm::vec3(object.scale.x, object.scale.y, object.scale.z));
-
 	model = glm::rotate(model, object.rotate.x, glm::vec3(1.0,0.0,0.0));
 	model = glm::rotate(model, object.rotate.y, glm::vec3(0.0,1.0,0.0));
 	model = glm::rotate(model, object.rotate.z, glm::vec3(0.0,0.0,1.0));
 
 	glBindVertexArray(object.VAO);
 
+	GLint modelLoc = glGetUniformLocation(shaderID, "model");
 	glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
 	
 	glBindTexture(GL_TEXTURE_2D, object.textureID); 

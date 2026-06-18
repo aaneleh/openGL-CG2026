@@ -76,14 +76,14 @@
 ## Tarefa 6 `Keyframes.cpp`
 
 - Adicione trajetórias para objetos
-- 🚧 Permitir a adição de alguns pontos no espaço e realizar a translação do objeto por estes pontos de maneira cíclica  
+- Permitir a adição de alguns pontos no espaço e realizar a translação do objeto por estes pontos de maneira cíclica  
 
 
 ## Grau B - `Keyframes.cpp`
 
-- ✔ Seleção e Transformação: Selecionar um objeto da cena e aplicar operações de translação, rotação e escala uniforme.
-- ✔ Materiais e Texturas: Alternar a exibição para comprovar a leitura correta dos coeficientes do material (ka, ks, kd do arquivo .mtl) e o mapeamento de textura.
-- ✔ Iluminação (Phong): Modificar parâmetros de luz e ligar/desligar individualmente as fontes de luz da cena (incluindo a lógica de 3 pontos), evidenciando o modelo de iluminação implementado.
-- [MELHORAR] Câmera: Navegar ativamente pela cena utilizando a câmera (controle via teclado/mouse).
-- [FAZER] Animação: Iniciar e pausar a trajetória de objetos definidos com curvas paramétricas (Bézier).
+- Seleção e Transformação: Selecionar um objeto da cena e aplicar operações de translação, rotação e escala uniforme.
+- Materiais e Texturas: Alternar a exibição para comprovar a leitura correta dos coeficientes do material (ka, ks, kd do arquivo .mtl) e o mapeamento de textura.
+- Iluminação (Phong): Modificar parâmetros de luz e ligar/desligar individualmente as fontes de luz da cena (incluindo a lógica de 3 pontos), evidenciando o modelo de iluminação implementado.
+- Câmera: Navegar ativamente pela cena utilizando a câmera (controle via teclado/mouse).
+- Animação: Iniciar e pausar a trajetória de objetos definidos com curvas paramétricas (Bézier).
 
